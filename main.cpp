@@ -2,7 +2,20 @@
 #include <string>
 #include <vector>
 #include <set>
+#include <unordered_map>
 using namespace std;
+
+// 错误信息
+unordered_map<string, string> ERR_MSG{
+    {"EMPTY_INPUT", "Please enter command."},
+    {"INVALID_COMMAND", "Invalid command."},
+    {"INVALID_PARAM", "Invalid param."},
+    {"FILE_NOT_FOUND", "File not found."},
+    {"AMBIGUOUS_FILE", "Please specify file path."},
+    {"MORE_THAN_ONE_FILE", "More than one file path."},
+};
+// 退出
+const string BYE = "Bye!";
 
 // 函数声明
 extern "C"
@@ -81,15 +94,17 @@ bool remove_duplicate(vector<string> &vec)
         else if (s[0] == '-')
         {
             // 错误参数
-            if (s.size() == 1 ||
-                !is_all_l(s.substr(1)))
+            bool non_param = s.size() == 1;
+            bool is_not_l = !is_all_l(s.substr(1));
+            if (non_param || is_not_l)
             {
-                cout << "Invalid param." << endl;
+                cout << ERR_MSG["INVALID_PARAM"] << endl;
                 return false;
             }
-            // 超过一个l当做不存在
+            // 超过一个l就当成只有一个-l塞进去
             else
             {
+                non_duplicate.insert("-l");
                 continue;
             }
         }
@@ -104,7 +119,7 @@ bool remove_duplicate(vector<string> &vec)
     // 超过一个路径
     if (count > 1)
     {
-        cout << "More than one file path." << endl;
+        cout << ERR_MSG["MORE_THAN_ONE_FILE"] << endl;
         return false;
     }
     vec.assign(non_duplicate.begin(), non_duplicate.end());
@@ -113,12 +128,6 @@ bool remove_duplicate(vector<string> &vec)
 
 int main()
 {
-    // cout << maxofthree(1, -4, -7) << endl;
-    // cout << maxofthree(2, -6, 1) << endl;
-    // cout << maxofthree(2, 3, 1) << endl;
-    // cout << maxofthree(-2, 4, 3) << endl;
-    // cout << maxofthree(2, -6, 5) << endl;
-    // cout << maxofthree(2, 4, 6) << endl;
     string input;
     while (getline(cin, input))
     {
@@ -131,14 +140,18 @@ int main()
         // 输入为空，重试
         if (input == "")
         {
-            cout << "Please enter command." << endl;
+            cout << ERR_MSG["EMPTY_INPUT"] << endl;
             continue;
         }
         // 分割输入内容
         vector<string> splitted_input = split_string(input, " ");
-        // 获取命令
+        // 获取命令，然后从输入中移除命令
         string command = splitted_input[0];
         splitted_input.erase(splitted_input.begin());
+        for (auto &s : splitted_input)
+        {
+            cout << s << endl;
+        }
         // ls命令
         if (command == "ls")
         {
@@ -152,25 +165,42 @@ int main()
             // 此时应该可以确认输入里只剩参数和文件路径了
             // TODO: 进行ls处理
             string param = splitted_input[0];
-            string filename = splitted_input[1];
+            string filename;
+            // 不指定路径则默认根目录
+            if (splitted_input.size() == 1)
+            {
+                filename = "/";
+            }
+            else
+            {
+                filename = splitted_input[1];
+            }
+            cout << param << " " << filename << endl;
         }
         // cat命令
         else if (command == "cat")
         {
-            // 未指定文件路径
-            if (splitted_input.size() == 1)
+            int file_num = splitted_input.size();
+            // 未指定路径
+            if (file_num == 0)
             {
-                cout << "Please specify file path." << endl;
+                cout << ERR_MSG["AMBIGUOUS_FILE"] << endl;
+                continue;
+            }
+            // 路径超过一个
+            else if (file_num > 1)
+            {
+                cout << ERR_MSG["MORE_THAN_ONE_FILE"] << endl;
                 continue;
             }
             // TODO: 待输出文件路径
-            string filename = splitted_input[1];
+            string filename = splitted_input[0];
             cout << filename << endl;
         }
         // 命令不存在
         else
         {
-            cout << "Invalid command." << endl;
+            cout << ERR_MSG["INVALID_COMMAND"] << endl;
             continue;
         }
     }
