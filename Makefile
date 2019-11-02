@@ -1,3 +1,5 @@
+# compiler(for C++11)
+cxx = g++ -g -Wall -std=c++11
 # src codes
 main_code = main.cpp
 print_code = my_print.asm
@@ -10,7 +12,7 @@ generate_files += $(main_code)
 target = main
 
 $(target): $(main_code) $(print_obj)
-	g++ -m32 -o $(target) $(main_code) $(print_obj)
+	$(cxx) -m32 -o $(target) $(main_code) $(print_obj)
 $(print_obj): $(print_code)
 	nasm -f elf32 -o $(print_obj) $(print_code)
 
