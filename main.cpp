@@ -35,7 +35,7 @@ struct FAT12Header
     uint BS_VolID;          // 卷序列号
     char BS_VolLab[11];     // 卷标，必须是11个字符，不足以空格填充
     char BS_FileSysType[8]; // 文件系统类型，必须是8个字符，不足填充空格
-};
+} header;
 // 根目录项
 struct DirEntry
 {
@@ -64,8 +64,27 @@ unordered_map<string, string> ERR_MSG{
     {"AMBIGUOUS_FILE", "Please specify file path."},
     {"MORE_THAN_ONE_FILE", "More than one file path."},
 };
+// 文件属性
+enum FileAttributes
+{
+    READ_ONLY = 0x01,
+    HIDDEN = 0x02,
+    SYSTEM = 0x04,
+    VOLUME_ID = 0x08,
+    DIRECTORY = 0x10,
+    ARCHIVE = 0x20,
+    LFN = READ_ONLY | HIDDEN | SYSTEM | VOLUME_ID,
+    EMPTY = 0x00
+};
 // 退出
 const string BYE = "Bye!";
+// FAT项大小，12B
+const int FAT_ENTRY_SIZE = 12;
+// 始地址
+const int FAT_ADDR = 0x200;
+// 这里是默认值，后面还会进行计算
+int DIR_SECTION_ADDR = 0x2600;
+int DATA_SECTION_ADDR = 0x4200;
 
 // 函数声明
 extern "C"
@@ -188,53 +207,72 @@ void readFAT12Header(FAT12Header &rf, ifstream &infile)
     // 确保字符串结束
     rf.BS_VolLab[10] = '\0';
     rf.BS_FileSysType[7] = '\0';
-    // 输出
-    // cout << "BS_OEMName: " << rf.BS_OEMName << endl;
-    // cout << "BPB_BytsPerSec: " << hex << rf.BPB_BytsPerSec << endl;
-    // cout << "BPB_SecPerClus: " << hex << (int)rf.BPB_SecPerClus << endl;
-    // cout << "BPB_RsvdSecCnt: " << hex << rf.BPB_RsvdSecCnt << endl;
-    // cout << "BPB_NumFATs: " << hex << (int)rf.BPB_NumFATs << endl;
-    // cout << "BPB_RootEntCnt: " << hex << rf.BPB_RootEntCnt << endl;
-    // cout << "BPB_TotSec16: " << hex << rf.BPB_TotSec16 << endl;
-    // cout << "BPB_Media: " << hex << (int)rf.BPB_Media << endl;
-    // cout << "BPB_FATSz16: " << hex << rf.BPB_FATSz16 << endl;
-    // cout << "BPB_SecPerTrk: " << hex << rf.BPB_SecPerTrk << endl;
-    // cout << "BPB_NumHeads: " << hex << rf.BPB_NumHeads << endl;
-    // cout << "BPB_HiddSec: " << hex << rf.BPB_HiddSec << endl;
-    // cout << "BPB_TotSec32: " << hex << rf.BPB_TotSec32 << endl;
-    // cout << "BS_DrvNum: " << hex << (int)rf.BS_DrvNum << endl;
-    // cout << "BS_Reserved1: " << hex << (int)rf.BS_Reserved1 << endl;
-    // cout << "BS_BootSig: " << hex << (int)rf.BS_BootSig << endl;
-    // cout << "BS_VolID: " << hex << rf.BS_VolID << endl;
-    // cout << "BS_VolLab: " << rf.BS_VolLab << endl;
-    // cout << "BS_FileSysType: " << rf.BS_FileSysType << endl;
+}
+
+/**
+ * 读取FAT12表项内容
+ * @param num 第几项
+ * @param infile 文件流
+ * @return FAT表项内容
+ */
+int readFAT(int num, ifstream &infile)
+{
+    uint nextAddr = 0;
+    infile.seekg(FAT_ADDR + num / 2 * 3, ios_base::beg);
+    infile.read(reinterpret_cast<char *>(&nextAddr), FAT_ENTRY_SIZE * 2 / 8);
+    cout << hex << nextAddr << endl;
+    // 偶数拿低位
+    // 构造形如00000000000000000000111111111111的掩码
+    if (num % 2 == 0)
+    {
+        nextAddr &= uint(-1) >> (sizeof(uint) * 8 - FAT_ENTRY_SIZE);
+    }
+    // 奇数拿高位
+    // 构造形如00000000111111111111000000000000的掩码，然后右移
+    else
+    {
+        nextAddr &= (uint(-1) << (sizeof(uint) * 8 - FAT_ENTRY_SIZE)) >> (sizeof(uint) * 8 - FAT_ENTRY_SIZE * 2);
+        nextAddr = nextAddr >> FAT_ENTRY_SIZE;
+    }
+    return nextAddr;
+}
+
+DirEntry readDirEntryContent(int addr, ifstream &infile)
+{
+    DirEntry de;
+    infile.seekg(addr, ios_base::beg);
+    infile.read(reinterpret_cast<char *>(&de), sizeof(de));
+    return de;
 }
 
 /**
  * 读取FAT12镜像的根目录区并打印
- * @param root 用于存储读取到的根目录区的结构体
  * @param addr 根目录区地址
  * @param infile 文件流
  */
-void readDirEntry(vector<DirEntry> &root, int addr, ifstream &infile)
+void readDirEntry(int addr, ifstream &infile)
 {
-    DirEntry de;
-    // 读取
-    infile.seekg(addr, ios::beg);
-    infile.read(reinterpret_cast<char *>(&de), sizeof(de));
-
-    de.file_name[11] = '\0';
-
-    cout << hex << de.file_name << endl;
-    cout << hex << (int)de.attribute << endl;
-    cout << hex << de.cluster_num << endl;
+    DirEntry de = readDirEntryContent(addr, infile);
+    // 为空，结束
+    if (de.attribute != EMPTY)
+    {
+        return;
+    }
+    // 目录，递归
+    if (de.attribute == DIRECTORY)
+    {
+        int dirAddr = DATA_SECTION_ADDR + de.cluster_num * header.BPB_BytsPerSec;
+        readDirEntry(dirAddr, infile);
+    }
+    else
+    {
+    }
 }
 
 int main()
 {
     ifstream infile("x.img", ios::in | ios::binary);
     // 读取FAT12引导扇区
-    FAT12Header header;
     readFAT12Header(header, infile);
 
     // 计算根目录区和数据区的始地址
@@ -245,14 +283,12 @@ int main()
         dir_sections = static_cast<int>(dir_sections) + 1;
     }
     // 根目录区始地址
-    int dir_section_addr = (1 + 9 * 2) * 512;
-    cout << hex << dir_section_addr << endl;
-    // 数据区始地址
-    int data_section_addr = (1 + 9 * 2 + dir_sections) * 512;
-    cout << hex << data_section_addr << endl;
+    DIR_SECTION_ADDR = (1 + 9 * 2) * 512;
+    // 数据区始地址（-2是为了计算方便）
+    DATA_SECTION_ADDR = (1 + 9 * 2 + dir_sections - 2) * 512;
 
-    vector<DirEntry> root;
-    readDirEntry(root, dir_section_addr, infile);
+    // vector<vector<DirEntry>> root;
+    // readDirEntry(root, DIR_SECTION_ADDR, infile);
 
     string input;
     while (getline(cin, input))
