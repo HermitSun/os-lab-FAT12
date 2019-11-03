@@ -227,7 +227,6 @@ int readFAT(int num, ifstream &infile)
     uint nextAddr = 0;
     infile.seekg(FAT_ADDR + num / 2 * 3, ios_base::beg);
     infile.read(reinterpret_cast<char *>(&nextAddr), FAT_ENTRY_SIZE * 2 / 8);
-    cout << hex << nextAddr << endl;
     // 偶数拿低位
     // 构造形如00000000000000000000111111111111的掩码
     if (num % 2 == 0)
@@ -257,7 +256,6 @@ string readDataCluster(int num, ifstream &infile)
     infile.read(reinterpret_cast<char *>(&buf), header.BPB_BytsPerSec);
     buf[512] = '\0';
     string data(buf);
-    cout << data.length() << endl;
     return data;
 }
 
@@ -284,7 +282,7 @@ void readDirEntry(int addr, ifstream &infile)
 {
     DirEntry de = readDirEntryContent(addr, infile);
     // 为空，结束
-    if (de.attribute != EMPTY)
+    if (de.attribute == EMPTY)
     {
         return;
     }
@@ -310,9 +308,24 @@ void readDirEntry(int addr, ifstream &infile)
             cout << ERR_MSG["BAD_CLUSTER"] << endl;
             return;
         }
-        // TODO: 超过一个扇区
+        // 超过一个扇区
         else
         {
+            cout << hex << fat << endl;
+            string data = readDataCluster(de.cluster_num, infile);
+            // 没结束
+            while (fat < LAST_CLUSTER)
+            {
+                // 并且没有坏
+                if (fat == BAD_CLUSTER)
+                {
+                    cout << ERR_MSG["BAD_CLUSTER"] << endl;
+                    return;
+                }
+                data += readDataCluster(fat, infile);
+                fat = readFAT(fat, infile);
+            }
+            cout << data << endl;
         }
     }
 }
@@ -336,7 +349,7 @@ int main()
     DATA_SECTION_ADDR = (1 + 9 * 2 + dir_sections - 2) * 512;
 
     // vector<vector<DirEntry>> root;
-    // readDirEntry(root, DIR_SECTION_ADDR, infile);
+    // readDirEntry(DIR_SECTION_ADDR + 32, infile);
 
     string input;
     while (getline(cin, input))
