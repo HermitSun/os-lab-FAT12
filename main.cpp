@@ -63,6 +63,7 @@ unordered_map<string, string> ERR_MSG{
     {"FILE_NOT_FOUND", "File not found."},
     {"AMBIGUOUS_FILE", "Please specify file path."},
     {"MORE_THAN_ONE_FILE", "More than one file path."},
+    {"BAD_CLUSTER", "Bad Cluster."},
 };
 // 文件属性
 enum FileAttributes
@@ -78,12 +79,18 @@ enum FileAttributes
 };
 // 退出
 const string BYE = "Bye!";
+// 最后一个数据簇
+const int LAST_CLUSTER = 0xFF8;
+// 坏簇
+const int BAD_CLUSTER = 0xFF7;
 // FAT项大小，12B
 const int FAT_ENTRY_SIZE = 12;
 // 始地址
 const int FAT_ADDR = 0x200;
 // 这里是默认值，后面还会进行计算
+// 根目录区
 int DIR_SECTION_ADDR = 0x2600;
+// 数据区
 int DATA_SECTION_ADDR = 0x4200;
 
 // 函数声明
@@ -237,6 +244,29 @@ int readFAT(int num, ifstream &infile)
     return nextAddr;
 }
 
+/**
+ * 读取数据簇内容（也就是一个扇区了）
+ * @param num 第几项
+ * @param infile 文件流
+ * @return 数据
+ */
+string readDataCluster(int num, ifstream &infile)
+{
+    char buf[512];
+    infile.seekg(DATA_SECTION_ADDR + num * header.BPB_BytsPerSec, ios_base::beg);
+    infile.read(reinterpret_cast<char *>(&buf), header.BPB_BytsPerSec);
+    buf[512] = '\0';
+    string data(buf);
+    cout << data.length() << endl;
+    return data;
+}
+
+/**
+ * 读取根目录项内容
+ * @param addr 地址
+ * @param infile 文件流
+ * @return 根目录项内容
+ */
 DirEntry readDirEntryContent(int addr, ifstream &infile)
 {
     DirEntry de;
@@ -264,8 +294,26 @@ void readDirEntry(int addr, ifstream &infile)
         int dirAddr = DATA_SECTION_ADDR + de.cluster_num * header.BPB_BytsPerSec;
         readDirEntry(dirAddr, infile);
     }
+    // 文件
     else
     {
+        int fat = readFAT(de.cluster_num, infile);
+        // 最后一个
+        if (fat >= LAST_CLUSTER)
+        {
+            cout << readDataCluster(de.cluster_num, infile) << endl;
+            return;
+        }
+        // 坏簇
+        else if (fat == BAD_CLUSTER)
+        {
+            cout << ERR_MSG["BAD_CLUSTER"] << endl;
+            return;
+        }
+        // TODO: 超过一个扇区
+        else
+        {
+        }
     }
 }
 
