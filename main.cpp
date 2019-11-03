@@ -4,6 +4,7 @@
 #include <vector>
 #include <set>
 #include <unordered_map>
+#include <algorithm>
 using namespace std;
 
 // 类型声明
@@ -56,15 +57,16 @@ struct DirEntry
 #pragma pack(pop)
 
 // 错误信息
-unordered_map<string, string> ERR_MSG{
-    {"EMPTY_INPUT", "Please enter command."},
-    {"INVALID_COMMAND", "Invalid command."},
-    {"INVALID_PARAM", "Invalid param."},
-    {"FILE_NOT_FOUND", "File not found."},
-    {"AMBIGUOUS_FILE", "Please specify file path."},
-    {"MORE_THAN_ONE_FILE", "More than one file path."},
-    {"BAD_CLUSTER", "Bad Cluster."},
-};
+unordered_map<string, string>
+    ERR_MSG{
+        {"EMPTY_INPUT", "Please enter command."},
+        {"INVALID_COMMAND", "Invalid command."},
+        {"INVALID_PARAM", "Invalid param."},
+        {"FILE_NOT_FOUND", "File not found."},
+        {"AMBIGUOUS_FILE", "Please specify file path."},
+        {"MORE_THAN_ONE_FILE", "More than one file path."},
+        {"BAD_CLUSTER", "Bad Cluster."},
+    };
 // 文件属性
 enum FileAttributes
 {
@@ -79,6 +81,8 @@ enum FileAttributes
 };
 // 退出
 const string BYE = "Bye!";
+// 根目录项大小，32B
+const int DIR_ENTRY_SIZE = 32;
 // 最后一个数据簇
 const int LAST_CLUSTER = 0xFF8;
 // 坏簇
@@ -122,6 +126,45 @@ vector<string> split_string(const string &src, const string &sep)
         v.push_back(src.substr(pos1));
     }
     return v;
+}
+
+/**
+ * 去掉字符串右边的空格
+ * @param s 字符串
+ */
+static inline void rtrim(string &s)
+{
+    s.erase(find_if(s.rbegin(), s.rend(), not1(ptr_fun<int, int>(isspace))).base(), s.end());
+}
+
+/**
+ * 判断字符串是否是"."或".."
+ * 强耦合的方法，不具有移植性
+ * @param src 待判断字符串
+ * @return 是 / 否
+ */
+bool is_single_or_double_dot(const char *s)
+{
+    if (*s != '.')
+    {
+        return false;
+    }
+    ++s;
+    if (*s != '.' && *s != ' ')
+    {
+        return false;
+    }
+    ++s;
+    // 这是在特定情况下的终止符
+    while (*s != 0x10)
+    {
+        if (*s != ' ')
+        {
+            return false;
+        }
+        ++s;
+    }
+    return true;
 }
 
 /**
@@ -252,10 +295,12 @@ int readFAT(int num, ifstream &infile)
 string readDataCluster(int num, ifstream &infile)
 {
     char buf[512];
-    infile.seekg(DATA_SECTION_ADDR + num * header.BPB_BytsPerSec, ios_base::beg);
+    int data_addr = DATA_SECTION_ADDR + num * header.BPB_BytsPerSec;
+    infile.seekg(data_addr, ios_base::beg);
     infile.read(reinterpret_cast<char *>(&buf), header.BPB_BytsPerSec);
     buf[512] = '\0';
     string data(buf);
+    rtrim(data);
     return data;
 }
 
@@ -282,57 +327,74 @@ void readDirEntry(int addr, ifstream &infile)
 {
     DirEntry de = readDirEntryContent(addr, infile);
     // 为空，结束
-    if (de.attribute == EMPTY)
+    while (de.attribute != EMPTY)
     {
-        return;
-    }
-    // 目录，递归
-    if (de.attribute == DIRECTORY)
-    {
-        int dirAddr = DATA_SECTION_ADDR + de.cluster_num * header.BPB_BytsPerSec;
-        readDirEntry(dirAddr, infile);
-    }
-    // 文件
-    else
-    {
-        int fat = readFAT(de.cluster_num, infile);
-        // 最后一个
-        if (fat >= LAST_CLUSTER)
+        // TODO: LFN，暂不考虑
+        if (de.attribute == LFN)
         {
-            cout << readDataCluster(de.cluster_num, infile) << endl;
-            return;
+            addr += DIR_ENTRY_SIZE;
+            de = readDirEntryContent(addr, infile);
+            continue;
         }
-        // 坏簇
-        else if (fat == BAD_CLUSTER)
+        // 目录，递归
+        else if (de.attribute == DIRECTORY)
         {
-            cout << ERR_MSG["BAD_CLUSTER"] << endl;
-            return;
+            cout << de.file_name << endl;
+            // 如果是当前目录或上级目录，直接下一步
+            if (is_single_or_double_dot(de.file_name))
+            {
+                addr += DIR_ENTRY_SIZE;
+                de = readDirEntryContent(addr, infile);
+                continue;
+            }
+            // 相当于根目录表放到数据区了
+            int dir_addr = DATA_SECTION_ADDR + de.cluster_num * header.BPB_BytsPerSec;
+            readDirEntry(dir_addr, infile);
         }
-        // 超过一个扇区
+        // 文件
         else
         {
-            cout << hex << fat << endl;
-            string data = readDataCluster(de.cluster_num, infile);
-            // 没结束
-            while (fat < LAST_CLUSTER)
+            cout << de.file_name << endl;
+            int fat = readFAT(de.cluster_num, infile);
+            // 最后一个
+            if (fat >= LAST_CLUSTER)
             {
-                // 并且没有坏
-                if (fat == BAD_CLUSTER)
-                {
-                    cout << ERR_MSG["BAD_CLUSTER"] << endl;
-                    return;
-                }
-                data += readDataCluster(fat, infile);
-                fat = readFAT(fat, infile);
+                cout << readDataCluster(de.cluster_num, infile) << endl;
             }
-            cout << data << endl;
+            // 坏簇
+            else if (fat == BAD_CLUSTER)
+            {
+                cout << ERR_MSG["BAD_CLUSTER"] << endl;
+                return;
+            }
+            // 超过一个扇区
+            else
+            {
+                string data = readDataCluster(de.cluster_num, infile);
+                // 没结束
+                while (fat < LAST_CLUSTER)
+                {
+                    // 并且没有坏
+                    if (fat == BAD_CLUSTER)
+                    {
+                        cout << ERR_MSG["BAD_CLUSTER"] << endl;
+                        return;
+                    }
+                    data += readDataCluster(fat, infile);
+                    fat = readFAT(fat, infile);
+                }
+                cout << data << endl;
+            }
         }
+        // 下一项
+        addr += DIR_ENTRY_SIZE;
+        de = readDirEntryContent(addr, infile);
     }
 }
 
 int main()
 {
-    ifstream infile("x.img", ios::in | ios::binary);
+    ifstream infile("a.img", ios::in | ios::binary);
     // 读取FAT12引导扇区
     readFAT12Header(header, infile);
 
@@ -349,7 +411,7 @@ int main()
     DATA_SECTION_ADDR = (1 + 9 * 2 + dir_sections - 2) * 512;
 
     // vector<vector<DirEntry>> root;
-    // readDirEntry(DIR_SECTION_ADDR + 32, infile);
+    readDirEntry(DIR_SECTION_ADDR, infile);
 
     string input;
     while (getline(cin, input))
