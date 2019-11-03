@@ -8,6 +8,11 @@
 using namespace std;
 
 // 类型声明
+enum FILE_TYPE
+{
+    NORMAL_FILE,
+    DIR
+};
 // 取消结构体对齐（重要，艹）
 #pragma pack(push)
 #pragma pack(1)
@@ -52,6 +57,18 @@ struct DirEntry
     ushort last_modification_date; // 最后修改日期（年7b月4b日5b）
     ushort cluster_num;            // 数据簇号
     uint file_size;                // 文件大小
+};
+// 链表实现的文件树
+struct FileNode
+{
+    FILE_TYPE type = NORMAL_FILE; // 结点类型
+    string file_name;             // 当前文件名
+    int child_dir_num = 0;        // 直接子文件夹数量
+    int child_file_num = 0;       // 直接子文件数量
+    int file_size = 0;            // 文件大小
+    string data;                  //数据
+    vector<FileNode *> children;  // 子节点
+    FileNode(string file_name) : file_name(file_name) {}
 };
 // 恢复对齐
 #pragma pack(pop)
@@ -135,6 +152,20 @@ vector<string> split_string(const string &src, const string &sep)
 static inline void rtrim(string &s)
 {
     s.erase(find_if(s.rbegin(), s.rend(), not1(ptr_fun<int, int>(isspace))).base(), s.end());
+}
+/**
+ * 去掉文件名字符串右边的空格
+ * 我没搞清楚为啥之前的函数不生效，我怀疑是因为有个0x10
+ * TODO: 这个函数是直接切到第一个空格，所以还是有点问题的；我们只能假定文件名里不会有空格
+ * @param s 字符串
+ */
+void file_name_rtrim(string &s)
+{
+    auto i = s.find(' ');
+    if (i != string::npos)
+    {
+        s = s.substr(0, i);
+    }
 }
 
 /**
@@ -319,11 +350,12 @@ DirEntry readDirEntryContent(int addr, ifstream &infile)
 }
 
 /**
- * 读取FAT12镜像的根目录区并打印
+ * 读取FAT12镜像的文件
  * @param addr 根目录区地址
  * @param infile 文件流
+ * @param parent 父文件
  */
-void readDirEntry(int addr, ifstream &infile)
+void readDirEntry(int addr, ifstream &infile, FileNode *parent)
 {
     DirEntry de = readDirEntryContent(addr, infile);
     // 为空，结束
@@ -339,27 +371,59 @@ void readDirEntry(int addr, ifstream &infile)
         // 目录，递归
         else if (de.attribute == DIRECTORY)
         {
-            cout << de.file_name << endl;
+            // 加进文件树，不需要考虑文件大小
+            // 加入的时候把多余的空格去掉，看着膈应
+            string name(de.file_name);
+            file_name_rtrim(name);
+            FileNode *node = new FileNode(name);
+            // 显式声明类型为目录
+            node->type = DIR;
+            parent->children.push_back(node);
+            // cout << parent << ":" << endl
+            //      << de.file_name << endl;
             // 如果是当前目录或上级目录，直接下一步
+            // 这两个不计入子目录
             if (is_single_or_double_dot(de.file_name))
             {
                 addr += DIR_ENTRY_SIZE;
                 de = readDirEntryContent(addr, infile);
                 continue;
             }
+            // 父节点子目录数 + 1
+            ++(parent->child_dir_num);
             // 相当于根目录表放到数据区了
             int dir_addr = DATA_SECTION_ADDR + de.cluster_num * header.BPB_BytsPerSec;
-            readDirEntry(dir_addr, infile);
+            readDirEntry(dir_addr, infile, node);
+            // if (vec[vec.size() - 1].file_size != -1)
+            // {
+            //     FileInfo fi;
+            //     fi.file_size = -1;
+            //     vec.push_back(fi);
+            // }
+            // cout << "---" << endl;
         }
         // 文件
         else
         {
-            cout << de.file_name << endl;
+            // 加进文件树
+            // 加入的时候把多余的空格去掉，看着膈应
+            string name(de.file_name);
+            file_name_rtrim(name);
+            cout << (name[9] == ' ') << endl;
+            FileNode *node = new FileNode(name);
+            node->file_size = de.file_size;
+            // 父节点子文件数 + 1
+            parent->children.push_back(node);
+            ++(parent->child_file_num);
+            // 父节点大小增加
+            parent->file_size += de.file_size;
+            // cout << parent << de.file_name << endl;
             int fat = readFAT(de.cluster_num, infile);
             // 最后一个
             if (fat >= LAST_CLUSTER)
             {
-                cout << readDataCluster(de.cluster_num, infile) << endl;
+                node->data = readDataCluster(de.cluster_num, infile);
+                // cout << readDataCluster(de.cluster_num, infile) << endl;
             }
             // 坏簇
             else if (fat == BAD_CLUSTER)
@@ -383,12 +447,47 @@ void readDirEntry(int addr, ifstream &infile)
                     data += readDataCluster(fat, infile);
                     fat = readFAT(fat, infile);
                 }
-                cout << data << endl;
+                node->data = data;
+                // cout << data << endl;
             }
         }
         // 下一项
         addr += DIR_ENTRY_SIZE;
         de = readDirEntryContent(addr, infile);
+    }
+}
+
+/**
+ * 全部输出
+ * @param root 文件树根结点
+ * @param parent 父节点名称
+ */
+void printAll(FileNode *root, const string &parent)
+{
+    // 单文件
+    if (root->type == NORMAL_FILE)
+    {
+        cout << parent << root->file_name << endl;
+        cout << root->file_size << endl;
+        cout << root->data << endl;
+        return;
+    }
+    else
+    {
+        if (is_single_or_double_dot(root->file_name.c_str()))
+        {
+            cout << root->file_name << endl;
+        }
+        else
+        {
+            cout << (parent == "" ? "/" : parent) << (root->file_name == "/" ? "" : root->file_name) << endl;
+            cout << root->child_file_num << endl;
+            cout << root->child_dir_num << endl;
+        }
+        for (auto node : root->children)
+        {
+            printAll(node, parent + root->file_name + (parent == "" ? "" : "/"));
+        }
     }
 }
 
@@ -410,8 +509,10 @@ int main()
     // 数据区始地址（-2是为了计算方便）
     DATA_SECTION_ADDR = (1 + 9 * 2 + dir_sections - 2) * 512;
 
-    // vector<vector<DirEntry>> root;
-    readDirEntry(DIR_SECTION_ADDR, infile);
+    FileNode *root = new FileNode("/");
+    root->type = DIR;
+    readDirEntry(DIR_SECTION_ADDR, infile, root);
+    printAll(root, "");
 
     string input;
     while (getline(cin, input))
