@@ -179,60 +179,65 @@ bool remove_duplicate(vector<string> &vec)
 /**
  * 读取FAT12镜像的引导扇区（主要是BPB）并打印
  * @param rf 用于存储读取到的header的结构体
- * @param filepath 镜像路径
+ * @param infile 文件流
  */
-void readFAT12Header(FAT12Header &rf, const string &filepath)
+void readFAT12Header(FAT12Header &rf, ifstream &infile)
 {
     // 读取
-    ifstream infile(filepath, ios::in | ios::binary);
     infile.read(reinterpret_cast<char *>(&rf), sizeof(rf));
-    infile.close();
     // 确保字符串结束
-    rf.BS_VolLab[10] = 0;
-    rf.BS_FileSysType[7] = 0;
+    rf.BS_VolLab[10] = '\0';
+    rf.BS_FileSysType[7] = '\0';
     // 输出
-    cout << "BS_OEMName: " << rf.BS_OEMName << endl;
-    cout << "BPB_BytsPerSec: " << hex << rf.BPB_BytsPerSec << endl;
-    cout << "BPB_SecPerClus: " << hex << (int)rf.BPB_SecPerClus << endl;
-    cout << "BPB_RsvdSecCnt: " << hex << rf.BPB_RsvdSecCnt << endl;
-    cout << "BPB_NumFATs: " << hex << (int)rf.BPB_NumFATs << endl;
-    cout << "BPB_RootEntCnt: " << hex << rf.BPB_RootEntCnt << endl;
-    cout << "BPB_TotSec16: " << hex << rf.BPB_TotSec16 << endl;
-    cout << "BPB_Media: " << hex << (int)rf.BPB_Media << endl;
-    cout << "BPB_FATSz16: " << hex << rf.BPB_FATSz16 << endl;
-    cout << "BPB_SecPerTrk: " << hex << rf.BPB_SecPerTrk << endl;
-    cout << "BPB_NumHeads: " << hex << rf.BPB_NumHeads << endl;
-    cout << "BPB_HiddSec: " << hex << rf.BPB_HiddSec << endl;
-    cout << "BPB_TotSec32: " << hex << rf.BPB_TotSec32 << endl;
-    cout << "BS_DrvNum: " << hex << (int)rf.BS_DrvNum << endl;
-    cout << "BS_Reserved1: " << hex << (int)rf.BS_Reserved1 << endl;
-    cout << "BS_BootSig: " << hex << (int)rf.BS_BootSig << endl;
-    cout << "BS_VolID: " << hex << rf.BS_VolID << endl;
-    cout << "BS_VolLab: " << rf.BS_VolLab << endl;
-    cout << "BS_FileSysType: " << rf.BS_FileSysType << endl;
+    // cout << "BS_OEMName: " << rf.BS_OEMName << endl;
+    // cout << "BPB_BytsPerSec: " << hex << rf.BPB_BytsPerSec << endl;
+    // cout << "BPB_SecPerClus: " << hex << (int)rf.BPB_SecPerClus << endl;
+    // cout << "BPB_RsvdSecCnt: " << hex << rf.BPB_RsvdSecCnt << endl;
+    // cout << "BPB_NumFATs: " << hex << (int)rf.BPB_NumFATs << endl;
+    // cout << "BPB_RootEntCnt: " << hex << rf.BPB_RootEntCnt << endl;
+    // cout << "BPB_TotSec16: " << hex << rf.BPB_TotSec16 << endl;
+    // cout << "BPB_Media: " << hex << (int)rf.BPB_Media << endl;
+    // cout << "BPB_FATSz16: " << hex << rf.BPB_FATSz16 << endl;
+    // cout << "BPB_SecPerTrk: " << hex << rf.BPB_SecPerTrk << endl;
+    // cout << "BPB_NumHeads: " << hex << rf.BPB_NumHeads << endl;
+    // cout << "BPB_HiddSec: " << hex << rf.BPB_HiddSec << endl;
+    // cout << "BPB_TotSec32: " << hex << rf.BPB_TotSec32 << endl;
+    // cout << "BS_DrvNum: " << hex << (int)rf.BS_DrvNum << endl;
+    // cout << "BS_Reserved1: " << hex << (int)rf.BS_Reserved1 << endl;
+    // cout << "BS_BootSig: " << hex << (int)rf.BS_BootSig << endl;
+    // cout << "BS_VolID: " << hex << rf.BS_VolID << endl;
+    // cout << "BS_VolLab: " << rf.BS_VolLab << endl;
+    // cout << "BS_FileSysType: " << rf.BS_FileSysType << endl;
 }
 
 /**
  * 读取FAT12镜像的根目录区并打印
  * @param root 用于存储读取到的根目录区的结构体
  * @param addr 根目录区地址
- * @param filepath 镜像路径
+ * @param infile 文件流
  */
-void readDirEntry(vector<DirEntry> &root, int addr, const string &filepath)
+void readDirEntry(vector<DirEntry> &root, int addr, ifstream &infile)
 {
     DirEntry de;
     // 读取
-    ifstream infile(filepath, ios::in | ios::binary);
     infile.seekg(addr, ios::beg);
     infile.read(reinterpret_cast<char *>(&de), sizeof(de));
-    infile.close();
+
+    de.file_name[11] = '\0';
+
+    cout << hex << de.file_name << endl;
+    cout << hex << (int)de.attribute << endl;
+    cout << hex << de.cluster_num << endl;
 }
 
 int main()
 {
+    ifstream infile("x.img", ios::in | ios::binary);
+    // 读取FAT12引导扇区
     FAT12Header header;
-    DirEntry root;
-    readFAT12Header(header, "x.img");
+    readFAT12Header(header, infile);
+
+    // 计算根目录区和数据区的始地址
     double dir_sections = header.BPB_RootEntCnt * 32 / header.BPB_BytsPerSec;
     // 不能除尽
     if (dir_sections != static_cast<int>(dir_sections))
@@ -245,7 +250,9 @@ int main()
     // 数据区始地址
     int data_section_addr = (1 + 9 * 2 + dir_sections) * 512;
     cout << hex << data_section_addr << endl;
-    
+
+    vector<DirEntry> root;
+    readDirEntry(root, dir_section_addr, infile);
 
     string input;
     while (getline(cin, input))
@@ -323,5 +330,7 @@ int main()
             continue;
         }
     }
+    // 关闭文件流
+    infile.close();
     return 0;
 }
