@@ -399,7 +399,7 @@ void readDirEntry(int addr, ifstream &infile, FileNode *parent)
     // 为空，结束
     while (de.attribute != EMPTY)
     {
-        // TODO: LFN，暂不考虑
+        // TODO: 暂不考虑LFN
         if (de.attribute == LFN)
         {
             addr += DIR_ENTRY_SIZE;
@@ -502,6 +502,8 @@ FileNode *findNode(FileNode *root, const string &path)
     int length = splitted_path.size();
     // 从根目录的下一级开始
     FileNode *spare = root;
+    // 类似引用计数的机制来确保搜索到了真正的目标
+    int count = 0;
     for (int i = 1; i < length; ++i)
     {
         for (auto node : root->children)
@@ -510,15 +512,17 @@ FileNode *findNode(FileNode *root, const string &path)
             if (node->file_name == splitted_path[i])
             {
                 root = node;
+                ++count;
                 break;
             }
         }
     }
-    return root == spare ? nullptr : root;
+    // 没找到，或者没有真正找到
+    return root == spare || count != length - 1 ? nullptr : root;
 }
 
 /**
- * 只输出文件名，对应于ls
+ * 全部输出，但只输出文件名，对应于ls
  * TODO: 用汇编替换cout去显示红色
  * @param root 文件树根结点
  * @param parent 父节点名称
@@ -695,8 +699,6 @@ int main()
             {
                 filename = "/" + filename;
             }
-            cout << param << " " << filename << endl;
-            // TODO: 进行ls处理
             // 只要有参数，就可以确认是-l，因为其他参数不合法
             if (param != "")
             {
@@ -714,16 +716,27 @@ int main()
                 {
                     parent += splitted_name[i] + "/";
                 }
-                cout << res->file_name << endl;
-                cout << parent << endl;
                 printDetail(res, parent);
             }
-
-            // printDetail(root, "");
-
-            // FileNode *res = findNode(root, "/NJU/");
-            // cout << res->file_name << " " << res->type << endl;
-            // printDetail(res, "/");
+            // 无参数
+            else
+            {
+                FileNode *res = findNode(root, filename);
+                // 找不到文件
+                if (!res)
+                {
+                    cout << ERR_MSG["FILE_NOT_FOUND"] << endl;
+                    continue;
+                }
+                vector<string> splitted_name = split_string(filename, "/");
+                string parent;
+                int length = splitted_name.size();
+                for (int i = 0; i < length - 1; ++i)
+                {
+                    parent += splitted_name[i] + "/";
+                }
+                printSummary(res, parent);
+            }
         }
         // cat命令
         else if (command == "cat")
@@ -741,7 +754,6 @@ int main()
                 cout << ERR_MSG["MORE_THAN_ONE_FILE"] << endl;
                 continue;
             }
-            // TODO: 待输出文件路径
             string filename = splitted_input[0];
             to_upper_ASCII(filename);
             // 如果没有以/开头，补上
