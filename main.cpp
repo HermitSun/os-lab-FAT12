@@ -181,13 +181,18 @@ bool is_single_or_double_dot(const char *s)
         return false;
     }
     ++s;
+    // 就一个'.'
+    if (!*s)
+    {
+        return true;
+    }
     if (*s != '.' && *s != ' ')
     {
         return false;
     }
     ++s;
     // 这是在特定情况下的终止符
-    while (*s != 0x10)
+    while (*s && *s != 0x10)
     {
         if (*s != ' ')
         {
@@ -379,8 +384,6 @@ void readDirEntry(int addr, ifstream &infile, FileNode *parent)
             // 显式声明类型为目录
             node->type = DIR;
             parent->children.push_back(node);
-            // cout << parent << ":" << endl
-            //      << de.file_name << endl;
             // 如果是当前目录或上级目录，直接下一步
             // 这两个不计入子目录
             if (is_single_or_double_dot(de.file_name))
@@ -394,13 +397,6 @@ void readDirEntry(int addr, ifstream &infile, FileNode *parent)
             // 相当于根目录表放到数据区了
             int dir_addr = DATA_SECTION_ADDR + de.cluster_num * header.BPB_BytsPerSec;
             readDirEntry(dir_addr, infile, node);
-            // if (vec[vec.size() - 1].file_size != -1)
-            // {
-            //     FileInfo fi;
-            //     fi.file_size = -1;
-            //     vec.push_back(fi);
-            // }
-            // cout << "---" << endl;
         }
         // 文件
         else
@@ -409,7 +405,6 @@ void readDirEntry(int addr, ifstream &infile, FileNode *parent)
             // 加入的时候把多余的空格去掉，看着膈应
             string name(de.file_name);
             file_name_rtrim(name);
-            cout << (name[9] == ' ') << endl;
             FileNode *node = new FileNode(name);
             node->file_size = de.file_size;
             // 父节点子文件数 + 1
@@ -417,13 +412,11 @@ void readDirEntry(int addr, ifstream &infile, FileNode *parent)
             ++(parent->child_file_num);
             // 父节点大小增加
             parent->file_size += de.file_size;
-            // cout << parent << de.file_name << endl;
             int fat = readFAT(de.cluster_num, infile);
             // 最后一个
             if (fat >= LAST_CLUSTER)
             {
                 node->data = readDataCluster(de.cluster_num, infile);
-                // cout << readDataCluster(de.cluster_num, infile) << endl;
             }
             // 坏簇
             else if (fat == BAD_CLUSTER)
@@ -448,7 +441,6 @@ void readDirEntry(int addr, ifstream &infile, FileNode *parent)
                     fat = readFAT(fat, infile);
                 }
                 node->data = data;
-                // cout << data << endl;
             }
         }
         // 下一项
@@ -458,32 +450,59 @@ void readDirEntry(int addr, ifstream &infile, FileNode *parent)
 }
 
 /**
- * 全部输出
+ * 全部输出，对应于ls -l
  * @param root 文件树根结点
  * @param parent 父节点名称
  */
 void printAll(FileNode *root, const string &parent)
 {
-    // 单文件
+    // 单文件，不输出直接返回，因为父级已经处理过了
     if (root->type == NORMAL_FILE)
     {
-        cout << parent << root->file_name << endl;
-        cout << root->file_size << endl;
-        cout << root->data << endl;
         return;
     }
+    // 目录
     else
     {
+        // 当前目录和上级目录，不输出直接返回，因为父级已经处理过了
         if (is_single_or_double_dot(root->file_name.c_str()))
         {
-            cout << root->file_name << endl;
+            return;
         }
+        // 其他目录输出，因为需要满足层级关系的格式
         else
         {
-            cout << (parent == "" ? "/" : parent) << (root->file_name == "/" ? "" : root->file_name) << endl;
-            cout << root->child_file_num << endl;
-            cout << root->child_dir_num << endl;
+            cout << (parent == "" ? "/" : parent) << (root->file_name == "/" ? "" : root->file_name)
+                 << " " << root->child_dir_num
+                 << " " << root->child_file_num
+                 << ":" << endl;
         }
+        // 每次先遍历输出每个目录里的内容
+        for (auto node : root->children)
+        {
+            if (node->type == NORMAL_FILE)
+            {
+                cout << node->file_name << (node->type == NORMAL_FILE ? ".TXT" : ".?")
+                     << " " << node->file_size
+                     << endl;
+            }
+            else
+            {
+                if (is_single_or_double_dot(node->file_name.c_str()))
+                {
+                    cout << node->file_name << endl;
+                }
+                else
+                {
+                    cout << node->file_name
+                         << " " << node->child_dir_num
+                         << " " << node->child_file_num
+                         << endl;
+                }
+            }
+        }
+        cout << endl;
+        // 然后对每个子目录进行递归
         for (auto node : root->children)
         {
             printAll(node, parent + root->file_name + (parent == "" ? "" : "/"));
