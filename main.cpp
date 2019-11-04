@@ -9,10 +9,17 @@
 using namespace std;
 
 // 类型声明
+// 文件类型
 enum FILE_TYPE
 {
     NORMAL_FILE,
     DIR
+};
+// 颜色
+enum COLOR
+{
+    COLOR_NULL = 0,
+    COLOR_RED = 1
 };
 // 取消结构体对齐（重要，艹）
 #pragma pack(push)
@@ -120,9 +127,11 @@ int DATA_SECTION_ADDR = 0x4200;
 extern "C"
 {
     /**
-     * 以红色输出内容
+     * 输出一个字符串
+     * @param c 颜色
+     * @param s 待输出字符串
      */
-    void nout();
+    void nout(COLOR c, const char *s);
 }
 
 /**
@@ -675,11 +684,6 @@ void printContent(FileNode *node)
 
 int main()
 {
-    // nout();
-    // cout << "\033[31m"
-    //      << "faq"
-    //      << "\033[0m" << endl;
-
     ifstream infile("a.img", ios::in | ios::binary);
     // 读取FAT12引导扇区
     readFAT12Header(header, infile);
