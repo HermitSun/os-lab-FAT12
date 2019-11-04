@@ -1,0 +1,18 @@
+# ignore all, except:
+*
+# image file
+# C/C++ file
+# assembly file
+# makefile
+# and, custom shell script
+# and, docs
+# Oops...of course itself!
+!*.img
+!*.c
+!*.cpp
+!*.asm
+!makefile
+!Makefile
+!*.sh
+!*.md
+!.gitignore
