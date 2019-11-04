@@ -368,13 +368,13 @@ int readFAT(int num, ifstream &infile)
     // 构造形如00000000000000000000111111111111的掩码
     if (num % 2 == 0)
     {
-        nextAddr &= uint(-1) >> (sizeof(uint) * 8 - FAT_ENTRY_SIZE);
+        nextAddr &= static_cast<uint>(-1) >> (sizeof(uint) * 8 - FAT_ENTRY_SIZE);
     }
     // 奇数拿高位
     // 构造形如00000000111111111111000000000000的掩码，然后右移
     else
     {
-        nextAddr &= (uint(-1) << (sizeof(uint) * 8 - FAT_ENTRY_SIZE)) >> (sizeof(uint) * 8 - FAT_ENTRY_SIZE * 2);
+        nextAddr &= (static_cast<uint>(-1) << (sizeof(uint) * 8 - FAT_ENTRY_SIZE)) >> (sizeof(uint) * 8 - FAT_ENTRY_SIZE * 2);
         nextAddr = nextAddr >> FAT_ENTRY_SIZE;
     }
     return nextAddr;
@@ -424,7 +424,7 @@ void readDirEntry(int addr, ifstream &infile, FileNode *parent)
     // 为空，结束
     while (de.attribute != EMPTY)
     {
-        // TODO: 暂不考虑LFN
+        // 暂不考虑LFN
         if (de.attribute == LFN)
         {
             addr += DIR_ENTRY_SIZE;
@@ -549,7 +549,6 @@ FileNode *findNode(FileNode *root, const string &path)
 
 /**
  * 全部输出，但只输出文件名，对应于ls
- * TODO: 用汇编替换cout去显示红色
  * @param root 文件树根结点
  * @param parent 父节点名称
  */
@@ -564,37 +563,34 @@ void printSummary(FileNode *root, const string &parent)
     else
     {
         // 当前目录和上级目录，不输出直接返回，因为父级已经处理过了
-        if (is_single_or_double_dot(root->file_name.c_str()))
+        if (is_single_or_double_dot((root->file_name).c_str()))
         {
             return;
         }
         // 其他目录输出，因为需要满足层级关系的格式
         else
         {
-            cout << (parent == "" ? "/" : parent) << (root->file_name == "/" ? "" : root->file_name)
-                 << (root->file_name == "/" ? "" : "/")
-                 << ":" << endl;
+            nout(COLOR_NULL, (parent == "" ? "/" : parent.c_str()));
+            nout(COLOR_NULL, (root->file_name == "/" ? "" : (root->file_name).c_str()));
+            nout(COLOR_NULL, (root->file_name == "/" ? "" : "/"));
+            nout(COLOR_NULL, ":");
+            nout(COLOR_NULL, "\n");
         }
         // 每次先遍历输出每个目录里的内容
         for (auto node : root->children)
         {
             if (node->type == NORMAL_FILE)
             {
-                cout << node->file_name << " ";
+                nout(COLOR_NULL, (node->file_name).c_str());
+                nout(COLOR_NULL, " ");
             }
             else
             {
-                if (is_single_or_double_dot(node->file_name.c_str()))
-                {
-                    cout << node->file_name << " ";
-                }
-                else
-                {
-                    cout << node->file_name << " ";
-                }
+                nout(COLOR_RED, (node->file_name).c_str());
+                nout(COLOR_NULL, " ");
             }
         }
-        cout << endl;
+        nout(COLOR_NULL, "\n");
         // 然后对每个子目录进行递归
         for (auto node : root->children)
         {
@@ -605,7 +601,6 @@ void printSummary(FileNode *root, const string &parent)
 
 /**
  * 全部输出，对应于ls -l
- * TODO: 用汇编替换cout去显示红色
  * @param root 文件树根结点
  * @param parent 父节点名称
  */
@@ -620,44 +615,52 @@ void printDetail(FileNode *root, const string &parent)
     else
     {
         // 当前目录和上级目录，不输出直接返回，因为父级已经处理过了
-        if (is_single_or_double_dot(root->file_name.c_str()))
+        if (is_single_or_double_dot((root->file_name).c_str()))
         {
             return;
         }
         // 其他目录输出，因为需要满足层级关系的格式
         else
         {
-            cout << (parent == "" ? "/" : parent) << (root->file_name == "/" ? "" : root->file_name)
-                 << (root->file_name == "/" ? "" : "/")
-                 << " " << root->child_dir_num
-                 << " " << root->child_file_num
-                 << ":" << endl;
+            nout(COLOR_NULL, (parent == "" ? "/" : parent.c_str()));
+            nout(COLOR_NULL, (root->file_name == "/" ? "" : (root->file_name).c_str()));
+            nout(COLOR_NULL, (root->file_name == "/" ? "" : "/"));
+            nout(COLOR_NULL, " ");
+            nout(COLOR_NULL, to_string(root->child_dir_num).c_str());
+            nout(COLOR_NULL, " ");
+            nout(COLOR_NULL, to_string(root->child_file_num).c_str());
+            nout(COLOR_NULL, ":");
+            nout(COLOR_NULL, "\n");
         }
         // 每次先遍历输出每个目录里的内容
         for (auto node : root->children)
         {
             if (node->type == NORMAL_FILE)
             {
-                cout << node->file_name
-                     << " " << node->file_size
-                     << endl;
+                nout(COLOR_NULL, (node->file_name).c_str());
+                nout(COLOR_NULL, " ");
+                nout(COLOR_NULL, to_string(node->file_size).c_str());
+                nout(COLOR_NULL, "\n");
             }
             else
             {
                 if (is_single_or_double_dot(node->file_name.c_str()))
                 {
-                    cout << node->file_name << endl;
+                    nout(COLOR_RED, (node->file_name).c_str());
+                    nout(COLOR_NULL, "\n");
                 }
                 else
                 {
-                    cout << node->file_name
-                         << " " << node->child_dir_num
-                         << " " << node->child_file_num
-                         << endl;
+                    nout(COLOR_RED, (node->file_name).c_str());
+                    nout(COLOR_NULL, " ");
+                    nout(COLOR_NULL, to_string(node->child_dir_num).c_str());
+                    nout(COLOR_NULL, " ");
+                    nout(COLOR_NULL, to_string(node->child_file_num).c_str());
+                    nout(COLOR_NULL, "\n");
                 }
             }
         }
-        cout << endl;
+        nout(COLOR_NULL, "\n");
         // 然后对每个子目录进行递归
         for (auto node : root->children)
         {
