@@ -119,11 +119,14 @@ int DATA_SECTION_ADDR = 0x4200;
 // 函数声明
 extern "C"
 {
-    int maxofthree(int, int, int);
+    /**
+     * 以红色输出内容
+     */
+    void nout();
 }
 
 /**
- * 分割字符串的
+ * 分割字符串
  * @param src 待分割字符串
  * @param sep 字符串形式的分隔符
  * @return 分割后的字符串组成的vector
@@ -200,6 +203,18 @@ void to_upper_ASCII(string &s)
     {
         c = toupper(c);
     }
+}
+
+/**
+ * 判断字符串是否全为大写
+ * @param s 字符串
+ * @return 是 / 否
+ */
+bool is_upper_case(const string &s)
+{
+    string temp = s;
+    to_upper_ASCII(const_cast<string &>(s));
+    return s == temp;
 }
 
 /**
@@ -660,6 +675,11 @@ void printContent(FileNode *node)
 
 int main()
 {
+    // nout();
+    // cout << "\033[31m"
+    //      << "faq"
+    //      << "\033[0m" << endl;
+
     ifstream infile("a.img", ios::in | ios::binary);
     // 读取FAT12引导扇区
     readFAT12Header(header, infile);
@@ -741,7 +761,12 @@ int main()
                 param = splitted_input[0];
                 filename = splitted_input[1];
             }
-            to_upper_ASCII(filename);
+            // 只支持大写
+            if (!is_upper_case(filename))
+            {
+                cout << ERR_MSG["FILE_NOT_FOUND"] << endl;
+                continue;
+            }
             // 如果没有以/开头，补上
             if (filename[0] != '/')
             {
@@ -789,7 +814,12 @@ int main()
                 continue;
             }
             string filename = splitted_input[0];
-            to_upper_ASCII(filename);
+            // 只支持大写
+            if (!is_upper_case(filename))
+            {
+                cout << ERR_MSG["FILE_NOT_FOUND"] << endl;
+                continue;
+            }
             // 如果没有以/开头，补上
             if (filename[0] != '/')
             {
