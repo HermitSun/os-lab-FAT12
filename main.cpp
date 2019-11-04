@@ -121,9 +121,9 @@ extern "C"
 }
 
 /**
- * 分割字符串的函数
+ * 分割字符串的
  * @param src 待分割字符串
- * @param sep 分隔符（可以是字符串）
+ * @param sep 字符串形式的分隔符
  * @return 分割后的字符串组成的vector
  */
 vector<string> split_string(const string &src, const string &sep)
@@ -143,6 +143,25 @@ vector<string> split_string(const string &src, const string &sep)
         v.push_back(src.substr(pos1));
     }
     return v;
+}
+
+/**
+ * 判断字符串是否以另一个字符串结尾
+ * @param str 源字符串
+ * @param end 结尾
+ * @return 是 / 否
+ */
+bool endswith(const string &str, const string &end)
+{
+    int srclen = str.size();
+    int endlen = end.size();
+    if (srclen >= endlen)
+    {
+        string temp = str.substr(srclen - endlen, endlen);
+        if (temp == end)
+            return true;
+    }
+    return false;
 }
 
 /**
@@ -405,6 +424,8 @@ void readDirEntry(int addr, ifstream &infile, FileNode *parent)
             // 加入的时候把多余的空格去掉，看着膈应
             string name(de.file_name);
             file_name_rtrim(name);
+            // 加上类型名
+            name += de.attribute == ARCHIVE ? ".TXT" : ".?";
             FileNode *node = new FileNode(name);
             node->file_size = de.file_size;
             // 父节点子文件数 + 1
@@ -450,6 +471,67 @@ void readDirEntry(int addr, ifstream &infile, FileNode *parent)
 }
 
 /**
+ * 查询路径对应的文件结点
+ * @param root 文件树
+ * @param path 文件路径
+ * @return 找到返回目标结点，未找到返回nullptr
+ */
+FileNode *findNode(FileNode *root, const string &path)
+{
+    // 如果是根目录，直接返回
+    if (path == "/")
+    {
+        return root;
+    }
+    // 判断是否是目录
+    // 需要这一步的主要原因是split函数有点问题，不加这个会无法区分同名的文件和目录
+    bool is_dir = false;
+    if (endswith(path, "/"))
+    {
+        is_dir = true;
+    }
+    vector<string> splitted_path = split_string(path, "/");
+    FileNode *res = nullptr;
+    int length = splitted_path.size();
+    // 从根目录的下一级开始
+    for (int i = 1; i < length; ++i)
+    {
+        for (auto node : root->children)
+        {
+            // 文件名相同，且文件类型也相同
+            if (node->file_name == splitted_path[i] &&
+                        node->type == is_dir
+                    ? DIR
+                    : NORMAL_FILE)
+            {
+                res = node;
+                break;
+            }
+        }
+    }
+    // 如果还没找到并且类型是文件，可能是因为类型不明确（/NJU是文件还是目录？）
+    // 因为如果未指定类型，可能是文件，也可能是目录
+    // 再找一次，这次匹配目录
+    if (!res && !is_dir)
+    {
+        for (int i = 1; i < length; ++i)
+        {
+            for (auto node : root->children)
+            {
+                // 文件名相同，且文件类型也相同
+                if (node->file_name == splitted_path[i] &&
+                    node->type == DIR)
+                {
+                    res = node;
+                    break;
+                }
+            }
+        }
+    }
+    return res;
+}
+
+/**
  * 全部输出，对应于ls -l
  * @param root 文件树根结点
  * @param parent 父节点名称
@@ -482,7 +564,7 @@ void printAll(FileNode *root, const string &parent)
         {
             if (node->type == NORMAL_FILE)
             {
-                cout << node->file_name << (node->type == NORMAL_FILE ? ".TXT" : ".?")
+                cout << node->file_name
                      << " " << node->file_size
                      << endl;
             }
@@ -528,10 +610,17 @@ int main()
     // 数据区始地址（-2是为了计算方便）
     DATA_SECTION_ADDR = (1 + 9 * 2 + dir_sections - 2) * 512;
 
+    // 新建根目录，显式指定为目录类型
     FileNode *root = new FileNode("/");
     root->type = DIR;
+    // 构建文件树
     readDirEntry(DIR_SECTION_ADDR, infile, root);
-    printAll(root, "");
+
+    // printAll(root, "");
+
+    // FileNode *res = findNode(root, "/NJU/");
+    // cout << res->file_name << " " << res->type << endl;
+    // printAll(res, "/");
 
     string input;
     while (getline(cin, input))
