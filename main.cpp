@@ -533,6 +533,7 @@ FileNode *findNode(FileNode *root, const string &path)
 
 /**
  * 全部输出，对应于ls -l
+ * TODO: 用汇编替换cout去显示红色
  * @param root 文件树根结点
  * @param parent 父节点名称
  */
@@ -616,12 +617,6 @@ int main()
     // 构建文件树
     readDirEntry(DIR_SECTION_ADDR, infile, root);
 
-    // printAll(root, "");
-
-    // FileNode *res = findNode(root, "/NJU/");
-    // cout << res->file_name << " " << res->type << endl;
-    // printAll(res, "/");
-
     string input;
     while (getline(cin, input))
     {
@@ -642,10 +637,6 @@ int main()
         // 获取命令，然后从输入中移除命令
         string command = splitted_input[0];
         splitted_input.erase(splitted_input.begin());
-        for (auto &s : splitted_input)
-        {
-            cout << s << endl;
-        }
         // ls命令
         if (command == "ls")
         {
@@ -658,18 +649,41 @@ int main()
             }
             // 此时应该可以确认输入里只剩参数和文件路径了
             // TODO: 进行ls处理
-            string param = splitted_input[0];
+            string param;
             string filename;
-            // 不指定路径则默认根目录
-            if (splitted_input.size() == 1)
+            // 只有一个命令
+            if (splitted_input.size() == 0)
             {
                 filename = "/";
             }
+            // 可能只有参数或命令
+            else if (splitted_input.size() == 1)
+            {
+                // 假设开头是-的都是参数
+                if (splitted_input[0][0] == '-')
+                {
+                    param = splitted_input[0];
+                    filename = "/";
+                }
+                // 是文件名
+                else
+                {
+                    filename = splitted_input[0];
+                }
+            }
+            // 既有参数又有命令
             else
             {
+                param = splitted_input[0];
                 filename = splitted_input[1];
             }
             cout << param << " " << filename << endl;
+
+            // printAll(root, "");
+
+            // FileNode *res = findNode(root, "/NJU/");
+            // cout << res->file_name << " " << res->type << endl;
+            // printAll(res, "/");
         }
         // cat命令
         else if (command == "cat")
