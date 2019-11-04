@@ -176,17 +176,18 @@ static inline void rtrim(string &s)
 }
 /**
  * 去掉文件名字符串右边的空格
- * 我没搞清楚为啥之前的函数不生效，我怀疑是因为有个0x10
- * TODO: 这个函数是直接切到第一个空格，所以还是有点问题的；我们只能假定文件名里不会有空格
+ * 之前的函数不生效是因为结束的时候可能有个0x10……服了
  * @param s 字符串
  */
 void file_name_rtrim(string &s)
 {
-    auto i = s.find(' ');
-    if (i != string::npos)
+    // 如果有神秘的0x10，先去掉
+    int length = s.length();
+    if (s[length - 1] == 0x10)
     {
-        s = s.substr(0, i);
+        s = s.substr(0, length - 1);
     }
+    rtrim(s);
 }
 
 /**
@@ -438,8 +439,9 @@ void readDirEntry(int addr, ifstream &infile, FileNode *parent)
             // 加入的时候把多余的空格去掉，看着膈应
             string name(de.file_name);
             file_name_rtrim(name);
+            vector<string> splitted_names = split_string(name, " ");
             // 加上类型名
-            name += de.attribute == ARCHIVE ? ".TXT" : ".?";
+            name = splitted_names[0] + "." + splitted_names[splitted_names.size() - 1];
             FileNode *node = new FileNode(name);
             node->file_size = de.file_size;
             // 父节点子文件数 + 1
