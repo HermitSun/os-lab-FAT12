@@ -1,6 +1,7 @@
 #include <iostream>
 #include <fstream>
 #include <string>
+#include <cctype>
 #include <vector>
 #include <set>
 #include <unordered_map>
@@ -184,6 +185,18 @@ void file_name_rtrim(string &s)
     if (i != string::npos)
     {
         s = s.substr(0, i);
+    }
+}
+
+/**
+ * 字符串转大写
+ * @param s 待转换字符串
+ */
+void to_upper_ASCII(string &s)
+{
+    for (auto &c : s)
+    {
+        c = toupper(c);
     }
 }
 
@@ -472,6 +485,7 @@ void readDirEntry(int addr, ifstream &infile, FileNode *parent)
 
 /**
  * 查询路径对应的文件结点
+ * TODO: 假设不会出现同名的文件和目录
  * @param root 文件树
  * @param path 文件路径
  * @return 找到返回目标结点，未找到返回nullptr
@@ -483,52 +497,23 @@ FileNode *findNode(FileNode *root, const string &path)
     {
         return root;
     }
-    // 判断是否是目录
-    // 需要这一步的主要原因是split函数有点问题，不加这个会无法区分同名的文件和目录
-    bool is_dir = false;
-    if (endswith(path, "/"))
-    {
-        is_dir = true;
-    }
     vector<string> splitted_path = split_string(path, "/");
-    FileNode *res = nullptr;
     int length = splitted_path.size();
     // 从根目录的下一级开始
+    FileNode *spare = root;
     for (int i = 1; i < length; ++i)
     {
         for (auto node : root->children)
         {
-            // 文件名相同，且文件类型也相同
-            if (node->file_name == splitted_path[i] &&
-                        node->type == is_dir
-                    ? DIR
-                    : NORMAL_FILE)
+            // 文件名相同
+            if (node->file_name == splitted_path[i])
             {
-                res = node;
+                root = node;
                 break;
             }
         }
     }
-    // 如果还没找到并且类型是文件，可能是因为类型不明确（/NJU是文件还是目录？）
-    // 因为如果未指定类型，可能是文件，也可能是目录
-    // 再找一次，这次匹配目录
-    if (!res && !is_dir)
-    {
-        for (int i = 1; i < length; ++i)
-        {
-            for (auto node : root->children)
-            {
-                // 文件名相同，且文件类型也相同
-                if (node->file_name == splitted_path[i] &&
-                    node->type == DIR)
-                {
-                    res = node;
-                    break;
-                }
-            }
-        }
-    }
-    return res;
+    return root == spare ? nullptr : root;
 }
 
 /**
@@ -537,7 +522,7 @@ FileNode *findNode(FileNode *root, const string &path)
  * @param root 文件树根结点
  * @param parent 父节点名称
  */
-void printAll(FileNode *root, const string &parent)
+void printDetail(FileNode *root, const string &parent)
 {
     // 单文件，不输出直接返回，因为父级已经处理过了
     if (root->type == NORMAL_FILE)
@@ -556,6 +541,7 @@ void printAll(FileNode *root, const string &parent)
         else
         {
             cout << (parent == "" ? "/" : parent) << (root->file_name == "/" ? "" : root->file_name)
+                 << (root->file_name == "/" ? "" : "/")
                  << " " << root->child_dir_num
                  << " " << root->child_file_num
                  << ":" << endl;
@@ -588,7 +574,7 @@ void printAll(FileNode *root, const string &parent)
         // 然后对每个子目录进行递归
         for (auto node : root->children)
         {
-            printAll(node, parent + root->file_name + (parent == "" ? "" : "/"));
+            printDetail(node, parent + root->file_name + (parent == "" ? "" : "/"));
         }
     }
 }
@@ -647,8 +633,7 @@ int main()
             {
                 continue;
             }
-            // 此时应该可以确认输入里只剩参数和文件路径了
-            // TODO: 进行ls处理
+            // 此时输入要么为空，要么只剩参数和文件路径
             string param;
             string filename;
             // 只有一个命令
@@ -677,13 +662,36 @@ int main()
                 param = splitted_input[0];
                 filename = splitted_input[1];
             }
+            to_upper_ASCII(filename);
             cout << param << " " << filename << endl;
+            // TODO: 进行ls处理
+            // 只要有参数，就可以确认是-l，因为其他参数不合法
+            if (param != "")
+            {
+                FileNode *res = findNode(root, filename);
+                // 找不到文件
+                if (!res)
+                {
+                    cout << ERR_MSG["FILE_NOT_FOUND"] << endl;
+                    continue;
+                }
+                vector<string> splitted_name = split_string(filename, "/");
+                string parent;
+                int length = splitted_name.size();
+                for (int i = 0; i < length - 1; ++i)
+                {
+                    parent += splitted_name[i] + "/";
+                }
+                cout << res->file_name << endl;
+                cout << parent << endl;
+                printDetail(res, parent);
+            }
 
-            // printAll(root, "");
+            // printDetail(root, "");
 
             // FileNode *res = findNode(root, "/NJU/");
             // cout << res->file_name << " " << res->type << endl;
-            // printAll(res, "/");
+            // printDetail(res, "/");
         }
         // cat命令
         else if (command == "cat")
