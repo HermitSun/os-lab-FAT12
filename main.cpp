@@ -529,6 +529,52 @@ FileNode *findNode(FileNode *root, const string &path)
  */
 void printSummary(FileNode *root, const string &parent)
 {
+    // 单文件，不输出直接返回，因为父级已经处理过了
+    if (root->type == NORMAL_FILE)
+    {
+        return;
+    }
+    // 目录
+    else
+    {
+        // 当前目录和上级目录，不输出直接返回，因为父级已经处理过了
+        if (is_single_or_double_dot(root->file_name.c_str()))
+        {
+            return;
+        }
+        // 其他目录输出，因为需要满足层级关系的格式
+        else
+        {
+            cout << (parent == "" ? "/" : parent) << (root->file_name == "/" ? "" : root->file_name)
+                 << (root->file_name == "/" ? "" : "/")
+                 << ":" << endl;
+        }
+        // 每次先遍历输出每个目录里的内容
+        for (auto node : root->children)
+        {
+            if (node->type == NORMAL_FILE)
+            {
+                cout << node->file_name << " ";
+            }
+            else
+            {
+                if (is_single_or_double_dot(node->file_name.c_str()))
+                {
+                    cout << node->file_name << " ";
+                }
+                else
+                {
+                    cout << node->file_name << " ";
+                }
+            }
+        }
+        cout << endl;
+        // 然后对每个子目录进行递归
+        for (auto node : root->children)
+        {
+            printSummary(node, parent + root->file_name + (parent == "" ? "" : "/"));
+        }
+    }
 }
 
 /**
@@ -699,42 +745,28 @@ int main()
             {
                 filename = "/" + filename;
             }
+            FileNode *res = findNode(root, filename);
+            // 找不到文件
+            if (!res)
+            {
+                cout << ERR_MSG["FILE_NOT_FOUND"] << endl;
+                continue;
+            }
+            vector<string> splitted_name = split_string(filename, "/");
+            string parent;
+            int length = splitted_name.size();
+            for (int i = 0; i < length - 1; ++i)
+            {
+                parent += splitted_name[i] + "/";
+            }
             // 只要有参数，就可以确认是-l，因为其他参数不合法
             if (param != "")
             {
-                FileNode *res = findNode(root, filename);
-                // 找不到文件
-                if (!res)
-                {
-                    cout << ERR_MSG["FILE_NOT_FOUND"] << endl;
-                    continue;
-                }
-                vector<string> splitted_name = split_string(filename, "/");
-                string parent;
-                int length = splitted_name.size();
-                for (int i = 0; i < length - 1; ++i)
-                {
-                    parent += splitted_name[i] + "/";
-                }
                 printDetail(res, parent);
             }
             // 无参数
             else
             {
-                FileNode *res = findNode(root, filename);
-                // 找不到文件
-                if (!res)
-                {
-                    cout << ERR_MSG["FILE_NOT_FOUND"] << endl;
-                    continue;
-                }
-                vector<string> splitted_name = split_string(filename, "/");
-                string parent;
-                int length = splitted_name.size();
-                for (int i = 0; i < length - 1; ++i)
-                {
-                    parent += splitted_name[i] + "/";
-                }
                 printSummary(res, parent);
             }
         }
