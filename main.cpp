@@ -83,6 +83,7 @@ unordered_map<string, string>
         {"FILE_NOT_FOUND", "File not found."},
         {"AMBIGUOUS_FILE", "Please specify file path."},
         {"MORE_THAN_ONE_FILE", "More than one file path."},
+        {"NOT_A_FILE", "Not a file."},
         {"BAD_CLUSTER", "Bad Cluster."},
     };
 // 文件属性
@@ -517,6 +518,16 @@ FileNode *findNode(FileNode *root, const string &path)
 }
 
 /**
+ * 只输出文件名，对应于ls
+ * TODO: 用汇编替换cout去显示红色
+ * @param root 文件树根结点
+ * @param parent 父节点名称
+ */
+void printSummary(FileNode *root, const string &parent)
+{
+}
+
+/**
  * 全部输出，对应于ls -l
  * TODO: 用汇编替换cout去显示红色
  * @param root 文件树根结点
@@ -576,6 +587,22 @@ void printDetail(FileNode *root, const string &parent)
         {
             printDetail(node, parent + root->file_name + (parent == "" ? "" : "/"));
         }
+    }
+}
+
+/**
+ * 输出文件内容，对应于cat
+ * @param node 需要输出的文件结点
+ */
+void printContent(FileNode *node)
+{
+    if (node->type == NORMAL_FILE)
+    {
+        cout << node->data << endl;
+    }
+    else
+    {
+        cout << ERR_MSG["NOT_A_FILE"] << endl;
     }
 }
 
@@ -663,6 +690,11 @@ int main()
                 filename = splitted_input[1];
             }
             to_upper_ASCII(filename);
+            // 如果没有以/开头，补上
+            if (filename[0] != '/')
+            {
+                filename = "/" + filename;
+            }
             cout << param << " " << filename << endl;
             // TODO: 进行ls处理
             // 只要有参数，就可以确认是-l，因为其他参数不合法
@@ -711,7 +743,20 @@ int main()
             }
             // TODO: 待输出文件路径
             string filename = splitted_input[0];
-            cout << filename << endl;
+            to_upper_ASCII(filename);
+            // 如果没有以/开头，补上
+            if (filename[0] != '/')
+            {
+                filename = "/" + filename;
+            }
+            FileNode *res = findNode(root, filename);
+            // 找不到文件
+            if (!res)
+            {
+                cout << ERR_MSG["FILE_NOT_FOUND"] << endl;
+                continue;
+            }
+            printContent(res);
         }
         // 命令不存在
         else
