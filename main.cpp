@@ -779,6 +779,19 @@ int main()
             {
                 filename = "/" + filename;
             }
+            // 相当于当前目录
+            if (endswith(filename, "/."))
+            {
+                filename = filename.substr(0, filename.length() - 2);
+            }
+            // 相当于上级目录
+            else if (endswith(filename, "/.."))
+            {
+                filename = filename.substr(0, filename.length() - 3);
+                vector<string> splitted_filename = split_string(filename, "/");
+                int parent_dirname_length = splitted_filename[splitted_filename.size() - 1].length();
+                filename = filename.substr(0, filename.length() - parent_dirname_length);
+            }
             FileNode *res = findNode(root, filename);
             // 找不到文件
             if (!res)
