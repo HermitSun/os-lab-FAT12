@@ -7,6 +7,7 @@
 # and, custom shell script
 # and, docs
 # Oops...of course itself!
+# Fine...still images.
 !*.img
 !*.c
 !*.cpp
@@ -16,3 +17,4 @@
 !*.sh
 !*.md
 !.gitignore
+!*.png
