@@ -1,16 +1,16 @@
 ; ------------
-; void _nout(COLOR c, const char* s);
+; void nout(COLOR c, const char* s);
 ; 输出一个指定颜色的字符串
 ; 参数通过esp传递
-global _nout
+global nout
 
 SECTION .data:
     COLOR_RED   db  0x1B, '[31m', 0H ; 红色，\[31m，0x1B代表转义字符
-    COLOR_NULL  db  0x1B, '[0m', 0H  ; 无色，\[0m
+    COLOR_NULL  db  0x1B, "[0m", 0H  ; 无色，\[0m
 
 SECTION .text:
 
-_nout:
+nout:
     mov     eax, [esp + 4]           ; get color
     cmp     eax, 0                   ; if(c==COLOR_NULL)
     je      .print_string
