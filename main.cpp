@@ -141,18 +141,9 @@ class NasmOut
 {
 private:
     COLOR color = COLOR_NULL;
-    static NasmOut *out;
     NasmOut() = default;
 
 public:
-    static NasmOut &get_instance()
-    {
-        if (!out)
-        {
-            out = new NasmOut();
-        }
-        return *out;
-    }
     void set_color(COLOR c)
     {
         color = c;
@@ -163,7 +154,7 @@ public:
         return out;
     }
 };
-NasmOut &nout = NasmOut::get_instance();
+NasmOut &nout;
 
 /**
  * 分割字符串
