@@ -153,13 +153,13 @@ public:
         }
         return *out;
     }
-    void set_color(COLOR color)
+    void set_color(COLOR c)
     {
-        this->color = color;
+        color = c;
     }
     friend NasmOut &operator<<(NasmOut &out, const char *s)
     {
-        _nout(this->color, s);
+        _nout(color, s);
         return out;
     }
 };
