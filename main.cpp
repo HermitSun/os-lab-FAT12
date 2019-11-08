@@ -24,8 +24,10 @@ enum COLOR
 // 取消结构体对齐（重要，艹）
 #pragma pack(push)
 #pragma pack(1)
-// 无符号char, 0-255
+// 无符号类型，主要是表示1位、2位和4位
 typedef unsigned char uchar;
+typedef unsigned short ushort;
+typedef unsigned int uint;
 // FAT12引导扇区
 struct FAT12Header
 {
@@ -131,8 +133,37 @@ extern "C"
      * @param c 颜色
      * @param s 待输出字符串
      */
-    void nout(COLOR c, const char *s);
+    void _nout(COLOR c, const char *s);
 }
+// 封装的nout输出
+// 使用单例模式
+class NasmOut
+{
+private:
+    COLOR color = COLOR_NULL;
+    static NasmOut *out;
+    NasmOut() = default;
+
+public:
+    static NasmOut &get_instance()
+    {
+        if (!out)
+        {
+            out = new NasmOut();
+        }
+        return *out;
+    }
+    void set_color(COLOR color)
+    {
+        this->color = color;
+    }
+    friend NasmOut &operator<<(NasmOut &out, const char *s)
+    {
+        _nout(this->color, s);
+        return out;
+    }
+};
+NasmOut &nout = NasmOut::get_instance();
 
 /**
  * 分割字符串
@@ -570,27 +601,39 @@ void printSummary(FileNode *root, const string &parent)
         // 其他目录输出，因为需要满足层级关系的格式
         else
         {
-            nout(COLOR_NULL, (parent == "" ? "/" : parent.c_str()));
-            nout(COLOR_NULL, (root->file_name == "/" ? "" : (root->file_name).c_str()));
-            nout(COLOR_NULL, (root->file_name == "/" ? "" : "/"));
-            nout(COLOR_NULL, ":");
-            nout(COLOR_NULL, "\n");
+            nout << (parent == "" ? "/" : parent.c_str())
+                 << (root->file_name == "/" ? "" : (root->file_name).c_str())
+                 << (root->file_name == "/" ? "" : "/")
+                 << ":\n";
+            // nout(COLOR_NULL, );
+            // nout(COLOR_NULL, (root->file_name == "/" ? "" : (root->file_name).c_str()));
+            // nout(COLOR_NULL, (root->file_name == "/" ? "" : "/"));
+            // nout(COLOR_NULL, ":");
+            // nout(COLOR_NULL, "\n");
         }
         // 每次先遍历输出每个目录里的内容
         for (auto node : root->children)
         {
+            nout.set_color(COLOR_NULL);
             if (node->type == NORMAL_FILE)
             {
-                nout(COLOR_NULL, (node->file_name).c_str());
-                nout(COLOR_NULL, " ");
+                nout << (node->file_name).c_str()
+                     << " ";
+                // nout(COLOR_NULL, );
+                // nout(COLOR_NULL,);
             }
             else
             {
-                nout(COLOR_RED, (node->file_name).c_str());
-                nout(COLOR_NULL, " ");
+                nout.set_color(COLOR_RED);
+                nout << (node->file_name).c_str();
+                nout.set_color(COLOR_NULL);
+                nout << " ";
+                // nout(COLOR_RED, (node->file_name).c_str());
+                // nout(COLOR_NULL, " ");
             }
         }
-        nout(COLOR_NULL, "\n");
+        nout << "\n";
+        // nout(COLOR_NULL, "\n");
         // 然后对每个子目录进行递归
         for (auto node : root->children)
         {
@@ -622,45 +665,72 @@ void printDetail(FileNode *root, const string &parent)
         // 其他目录输出，因为需要满足层级关系的格式
         else
         {
-            nout(COLOR_NULL, (parent == "" ? "/" : parent.c_str()));
-            nout(COLOR_NULL, (root->file_name == "/" ? "" : (root->file_name).c_str()));
-            nout(COLOR_NULL, (root->file_name == "/" ? "" : "/"));
-            nout(COLOR_NULL, " ");
-            nout(COLOR_NULL, to_string(root->child_dir_num).c_str());
-            nout(COLOR_NULL, " ");
-            nout(COLOR_NULL, to_string(root->child_file_num).c_str());
-            nout(COLOR_NULL, ":");
-            nout(COLOR_NULL, "\n");
+            nout.set_color(COLOR_NULL);
+            nout << (parent == "" ? "/" : parent.c_str())
+                 << (root->file_name == "/" ? "" : (root->file_name).c_str())
+                 << (root->file_name == "/" ? "" : "/")
+                 << " "
+                 << to_string(root->child_dir_num).c_str()
+                 << " "
+                 << to_string(root->child_file_num).c_str()
+                 << ":\n";
+            // nout(COLOR_NULL, (parent == "" ? "/" : parent.c_str()));
+            // nout(COLOR_NULL, (root->file_name == "/" ? "" : (root->file_name).c_str()));
+            // nout(COLOR_NULL, (root->file_name == "/" ? "" : "/"));
+            // nout(COLOR_NULL, " ");
+            // nout(COLOR_NULL, to_string(root->child_dir_num).c_str());
+            // nout(COLOR_NULL, " ");
+            // nout(COLOR_NULL, to_string(root->child_file_num).c_str());
+            // nout(COLOR_NULL, ":");
+            // nout(COLOR_NULL, "\n");
         }
         // 每次先遍历输出每个目录里的内容
         for (auto node : root->children)
         {
+            nout.set_color(COLOR_NULL);
             if (node->type == NORMAL_FILE)
             {
-                nout(COLOR_NULL, (node->file_name).c_str());
-                nout(COLOR_NULL, " ");
-                nout(COLOR_NULL, to_string(node->file_size).c_str());
-                nout(COLOR_NULL, "\n");
+                nout << (node->file_name).c_str()
+                     << " "
+                     << to_string(node->file_size).c_str()
+                     << "\n";
+                // nout(COLOR_NULL, (node->file_name).c_str());
+                // nout(COLOR_NULL, " ");
+                // nout(COLOR_NULL, to_string(node->file_size).c_str());
+                // nout(COLOR_NULL, "\n");
             }
             else
             {
                 if (is_single_or_double_dot(node->file_name.c_str()))
                 {
-                    nout(COLOR_RED, (node->file_name).c_str());
-                    nout(COLOR_NULL, "\n");
+                    nout.set_color(COLOR_RED);
+                    nout << (node->file_name).c_str();
+                    nout.set_color(COLOR_NULL);
+                    nout << "\n";
+                    // nout(COLOR_RED, (node->file_name).c_str());
+                    // nout(COLOR_NULL, "\n");
                 }
                 else
                 {
-                    nout(COLOR_RED, (node->file_name).c_str());
-                    nout(COLOR_NULL, " ");
-                    nout(COLOR_NULL, to_string(node->child_dir_num).c_str());
-                    nout(COLOR_NULL, " ");
-                    nout(COLOR_NULL, to_string(node->child_file_num).c_str());
-                    nout(COLOR_NULL, "\n");
+                    nout.set_color(COLOR_RED);
+                    nout << (node->file_name).c_str();
+                    nout.set_color(COLOR_NULL);
+                    nout << " "
+                         << to_string(node->child_dir_num).c_str()
+                         << " "
+                         << to_string(node->child_file_num).c_str()
+                         << "\n";
+                    // nout(COLOR_RED, (node->file_name).c_str());
+                    // nout(COLOR_NULL, " ");
+                    // nout(COLOR_NULL, to_string(node->child_dir_num).c_str());
+                    // nout(COLOR_NULL, " ");
+                    // nout(COLOR_NULL, to_string(node->child_file_num).c_str());
+                    // nout(COLOR_NULL, "\n");
                 }
             }
         }
-        nout(COLOR_NULL, "\n");
+        nout << "\n";
+        // nout(COLOR_NULL, "\n");
         // 然后对每个子目录进行递归
         for (auto node : root->children)
         {
