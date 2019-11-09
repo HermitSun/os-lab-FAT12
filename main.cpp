@@ -190,18 +190,20 @@ static inline void rtrim(string &s)
 }
 /**
  * 去掉文件名字符串右边的空格
- * 之前的函数不生效是因为结束的时候可能有个0x10……服了
+ * 假设不存在空格
  * @param s 字符串
  */
 void file_name_rtrim(string &s)
 {
-    // 如果有神秘的0x10，先去掉
     int length = s.length();
-    if (s[length - 1] == 0x10)
+    for (int i = 0; i < length; ++i)
     {
-        s = s.substr(0, length - 1);
+        if (s[i] == ' ')
+        {
+            s = s.substr(0, i);
+            break;
+        }
     }
-    rtrim(s);
 }
 
 /**
@@ -423,8 +425,9 @@ DirEntry readDirEntryContent(int addr, ifstream &infile)
 void readDirEntry(int addr, ifstream &infile, FileNode *parent)
 {
     DirEntry de = readDirEntryContent(addr, infile);
-    // 为空，结束
-    while (de.create_time != 0)
+    // 不是0x00，或者是0x00，但是有数据
+    while (de.attribute != NORMAL ||
+           (de.attribute == NORMAL && de.cluster_num != 0))
     {
         // 暂不考虑LFN
         if (de.attribute == LFN)
@@ -467,7 +470,14 @@ void readDirEntry(int addr, ifstream &infile, FileNode *parent)
             file_name_rtrim(name);
             vector<string> splitted_names = split_string(name, " ");
             // 加上类型名
-            name = splitted_names[0] + "." + splitted_names[splitted_names.size() - 1];
+            if (splitted_names.size() == 1)
+            {
+                name = splitted_names[0] + ".TXT";
+            }
+            else
+            {
+                name = splitted_names[0] + "." + splitted_names[splitted_names.size() - 1];
+            }
             FileNode *node = new FileNode(name);
             node->file_size = de.file_size;
             // 父节点子文件数 + 1
@@ -514,7 +524,7 @@ void readDirEntry(int addr, ifstream &infile, FileNode *parent)
 
 /**
  * 查询路径对应的文件结点
- * TODO: 假设不会出现同名的文件和目录
+ * 假设不会出现同名的文件和目录
  * @param root 文件树
  * @param path 文件路径
  * @return 找到返回目标结点，未找到返回nullptr
@@ -689,7 +699,7 @@ void printContent(FileNode *node)
 
 int main()
 {
-    ifstream infile("a.img", ios::in | ios::binary);
+    ifstream infile("ref.img", ios::in | ios::binary);
     // 读取FAT12引导扇区
     readFAT12Header(header, infile);
 
