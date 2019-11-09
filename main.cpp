@@ -98,14 +98,14 @@ unordered_map<string, string>
 // 文件属性
 enum FileAttributes
 {
+    NORMAL = 0x00,
     READ_ONLY = 0x01,
     HIDDEN = 0x02,
     SYSTEM = 0x04,
     VOLUME_ID = 0x08,
     DIRECTORY = 0x10,
     ARCHIVE = 0x20,
-    LFN = READ_ONLY | HIDDEN | SYSTEM | VOLUME_ID,
-    EMPTY = 0x00
+    LFN = READ_ONLY | HIDDEN | SYSTEM | VOLUME_ID
 };
 // 退出
 const string BYE = "Bye!";
@@ -424,7 +424,7 @@ void readDirEntry(int addr, ifstream &infile, FileNode *parent)
 {
     DirEntry de = readDirEntryContent(addr, infile);
     // 为空，结束
-    while (de.attribute != EMPTY)
+    while (de.create_time != 0)
     {
         // 暂不考虑LFN
         if (de.attribute == LFN)
