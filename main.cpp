@@ -98,6 +98,7 @@ unordered_map<string, string>
 // 文件属性
 enum FileAttributes
 {
+    // 个人认为0x00是不规范的，因为这个0x00害得我改了一个小时
     NORMAL = 0x00,
     READ_ONLY = 0x01,
     HIDDEN = 0x02,
