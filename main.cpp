@@ -700,7 +700,7 @@ void printContent(FileNode *node)
 
 int main()
 {
-    ifstream infile("ref.img", ios::in | ios::binary);
+    ifstream infile("a.img", ios::in | ios::binary);
     // 读取FAT12引导扇区
     readFAT12Header(header, infile);
 
