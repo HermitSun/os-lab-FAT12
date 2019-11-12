@@ -93,6 +93,7 @@ unordered_map<string, string>
         {"AMBIGUOUS_FILE", "Please specify file path."},
         {"MORE_THAN_ONE_FILE", "More than one file path."},
         {"NOT_A_FILE", "Not a file."},
+        {"NOT_A_DIR", "Not a directory."},
         {"BAD_CLUSTER", "Bad Cluster."},
     };
 // 文件属性
@@ -812,6 +813,12 @@ int main()
                 cout << ERR_MSG["FILE_NOT_FOUND"] << endl;
                 continue;
             }
+            // 目标是文件
+            else if (res->type == NORMAL_FILE)
+            {
+                cout << ERR_MSG["NOT_A_DIR"] << endl;
+                continue;
+            }
             vector<string> splitted_name = split_string(filename, "/");
             string parent;
             int length = splitted_name.size();
@@ -863,6 +870,12 @@ int main()
             if (!res)
             {
                 cout << ERR_MSG["FILE_NOT_FOUND"] << endl;
+                continue;
+            }
+            // 输出不是文件
+            else if (res->type != NORMAL_FILE)
+            {
+                cout << ERR_MSG["NOT_A_FILE"] << endl;
                 continue;
             }
             printContent(res);
