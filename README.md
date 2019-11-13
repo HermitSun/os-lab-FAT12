@@ -140,9 +140,9 @@
 
 14. #### linux下可执行文件的虚拟地址空间默认从哪里开始分配。
 
-    ELF可执行文件默认加载到地址0x08048000。ld的默认脚本用这个地址作为ELF的起始地址。
+    32位下，ELF可执行文件默认加载到地址0x08048000。ld的默认脚本用这个地址作为ELF的起始地址。实话说原因不明，似乎是一个Magic Number。
 
-    实话说原因不明，似乎是一个Magic Number。
+    64位下，**据说**是加载到0x40000000。原因同样不明。
 
     > On 386 systems, the text base address is 0x08048000, which permits a reasonably large stack below the text while still staying above address 0x08000000, permitting most programs to use a single second-level page table. (Recall that on the 386, each second-level table maps 0x00400000 addresses.)
     >
