@@ -136,7 +136,9 @@
 
 13. #### 静态链接相关PPT中为什么使用ld链接而不是gcc
 
-    事实上，gcc调用的就是ld，但是使用gcc不用手动指定C标准库，而ld需要（因为ld更底层）。所以我不知道他为什么一定要用ld，可能是参数不一样吧。或者如果非要说，gcc是一整套操作，ld单独是链接。
+     事实上，gcc调用的就是ld，但是使用gcc不用手动指定C标准库，而ld需要（因为ld更底层）。所以我不知道他为什么一定要用ld，可能是参数不一样吧。或者如果非要说，gcc是一整套操作，ld单独是链接。
+
+     > 可能的一种解释：使用ld进行连接的原因是为了避免gcc 进行glibc 的链接。用gcc 的话有可能去调C库，使程序环境变得复杂，所以用ld）。
 
 14. #### linux下可执行文件的虚拟地址空间默认从哪里开始分配。
 
@@ -147,6 +149,16 @@
     > On 386 systems, the text base address is 0x08048000, which permits a reasonably large stack below the text while still staying above address 0x08000000, permitting most programs to use a single second-level page table. (Recall that on the 386, each second-level table maps 0x00400000 addresses.)
     >
     > 在386系统上，代码基址为0x08048000，它允许在代码下方有相当大的堆栈，而仍保持在地址0x08000000上方，从而允许大多数程序使用单个二级页表。
+
+#### 隐藏问题
+
+##### FAT表的名字？
+
+File Allocation Table，文件分配表。
+
+##### 静态链接和动态链接各有什么优缺点？
+
+静态的优点是快，缺点是占空间，而且每次修改都要重新编译；动态的优点是不占空间，可以选择载入，同时每次修改完之后只需要链接即可，缺点就是慢。
 
 ### 2.2 实验相关内容
 
